@@ -78,9 +78,9 @@ resource "azurerm_virtual_machine" "gitlab" {
   }
 
   os_profile {
-    computer_name  = "fndmnts-ngnhr"
-    admin_username = "azureuser"
-    admin_password = "2017@Password"
+    computer_name  = "gitlab-srv"
+    admin_username = "${var.vm_username}"
+    admin_password = "${var.vm_password}"
   }
 
   os_profile_linux_config {
@@ -126,7 +126,6 @@ resource "null_resource" "gitlab-bd" {
   depends_on = ["azurerm_virtual_machine_extension.gitlab"]
 }
 
-
 resource "azurerm_network_interface" "gitlab-ci" {
   name                = "gitlab-ci-ni"
   location            = "${azurerm_resource_group.mygroup.location}"
@@ -168,8 +167,8 @@ resource "azurerm_virtual_machine" "gitlab-ci" {
 
   os_profile {
     computer_name  = "gitlab-ci"
-    admin_username = "azureuser"
-    admin_password = "2017@Password"
+    admin_username = "${var.vm_username}"
+    admin_password = "${var.vm_password}"
   }
 
   os_profile_linux_config {
@@ -184,7 +183,6 @@ resource "azurerm_virtual_machine" "gitlab-ci" {
   tags {
     environment = "${var.environment}"
   }
-
 }
 
 resource "azurerm_virtual_machine_extension" "gitlab-ci" {
@@ -223,4 +221,3 @@ resource "null_resource" "k8s-credentials" {
 
   depends_on = ["null_resource.k8s-create"]
 }
-                    
