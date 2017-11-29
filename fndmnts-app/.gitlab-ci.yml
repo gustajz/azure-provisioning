@@ -1,0 +1,100 @@
+image: maven:3.5-jdk-8
+
+stages:
+  - qa
+  - build
+  - package
+  - deploy
+  - production
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true"
+  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
+  IMAGE_NAME: fndmnts.azurecr.io/app:${CI_COMMIT_SHA}
+  DOCKER_REGISTRY: fndmnts.azurecr.io
+
+cache:
+  paths:
+    - .m2/repository
+    - 'target/Dockerfile'
+    - 'target/deployment.yml'
+    - 'target/*.jar'
+
+junit:
+  stage: qa
+  script:
+    - mvn $MAVEN_CLI_OPTS clean test
+    
+sonar:
+  stage: qa
+  script:
+    - mvn $MAVEN_CLI_OPTS clean verify
+  only:
+    - /^release.*$/
+    - /^develop.*$/
+
+build:
+  stage: build
+  script:
+    - mvn $MAVEN_CLI_OPTS clean package -Dmaven.test.skip=true
+  only:
+    - /^release.*$/
+    - /^develop.*$/
+
+package:
+  stage: package
+  image: docker:latest
+  before_script:
+    - docker login -u $DOCKER_USER -p $DOCKER_PASS $DOCKER_REGISTRY
+  script:
+    - cd target; docker build -t $IMAGE_NAME .
+    - docker push $IMAGE_NAME
+  only:
+    - /^develop.*$/
+    - /^release.*$/
+
+deploy:dev:
+  stage: deploy
+  image: lwolf/helm-kubectl-docker
+  before_script:
+    - mkdir ~/.kube
+    - echo ${KUBECONFIG64} | base64 -d > ~/.kube/config
+  script:
+    - kubectl get no
+    - kubectl apply -f target/deployment.yml --record
+  environment:
+    name: Dev
+  only:
+    - /^develop.*$/
+
+deploy:stage:
+  stage: deploy
+  when: manual
+  image: lwolf/helm-kubectl-docker
+  before_script:
+    - mkdir ~/.kube
+    - echo ${KUBECONFIG64} | base64 -d > ~/.kube/config
+  script:
+    - kubectl get no
+    - kubectl -n stage apply -f target/deployment.yml --record
+  environment:
+    name: Stage
+  only:
+    - /^develop.*$/
+
+deploy:production:
+  stage: production
+  when: manual
+  image: lwolf/helm-kubectl-docker
+  before_script:
+    - mkdir ~/.kube
+    - echo ${KUBECONFIG64} | base64 -d > ~/.kube/config
+  script:
+    - kubectl get no
+    - kubectl -n production apply -f target/deployment.yml --record
+  dependencies:
+    - deploy:stage
+  environment:
+    name: Production
+  only:
+    - /^develop.*$/
