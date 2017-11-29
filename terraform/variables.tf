@@ -34,4 +34,3 @@ resource "azurerm_resource_group" "mygroup" {
     environment = "${var.environment}"
   }
 }
-
