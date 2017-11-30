@@ -97,33 +97,12 @@ resource "azurerm_virtual_machine" "gitlab" {
   }
 }
 
-resource "azurerm_virtual_machine_extension" "gitlab" {
-  name                 = "gitlab-vme"
-  location             = "${azurerm_resource_group.mygroup.location}"
-  resource_group_name  = "${azurerm_resource_group.mygroup.name}"
-  virtual_machine_name = "${azurerm_virtual_machine.gitlab.name}"
-  publisher            = "Microsoft.Azure.Extensions"
-  type                 = "CustomScript"
-  type_handler_version = "2.0"
-
-  settings = <<SETTINGS
-    {
-        "fileUris": ["https://gist.githubusercontent.com/gustajz/c5a29692cd588cd016c8fc9c8a2ea46a/raw/378e6fb7b5fafd1513a61a9696d94e46a2ec1552/disable_https.sh"],
-        "commandToExecute": "sh disable_https.sh"
-    }
-SETTINGS
-
-  tags {
-    environment = "${var.environment}"
-  }
-}
-
 resource "null_resource" "gitlab-bd" {
   provisioner "local-exec" {
     command = "az vm boot-diagnostics get-boot-log --resource-group ${azurerm_resource_group.mygroup.name} --name ${azurerm_virtual_machine.gitlab.name}"
   }
 
-  depends_on = ["azurerm_virtual_machine_extension.gitlab"]
+  depends_on = ["azurerm_virtual_machine.gitlab"]
 }
 
 resource "azurerm_network_interface" "gitlab-ci" {
